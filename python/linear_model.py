@@ -25,10 +25,10 @@ C_cont = np.hstack([
     A @ A @ B,
     A @ A @ A @ B
 ])
+if __name__ == "__main__":
+    rank = np.linalg.matrix_rank(C_cont)
 
-rank = np.linalg.matrix_rank(C_cont)
-
-print("A =\n", A)
-print("\nB =\n", B)
-print("\nControllability matrix =\n", C_cont)
-print("\nRank =", rank)
+    print("A =\n", A)
+    print("\nB =\n", B)
+    print("\nControllability matrix =\n", C_cont)
+    print("\nRank =", rank)
