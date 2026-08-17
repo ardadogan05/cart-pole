@@ -4,6 +4,7 @@ import numpy as np
 from python.cartpole import dynamics
 
 dt = 0.01
+N = 500
 
 x = np.array([
     0.0,
@@ -14,10 +15,10 @@ x = np.array([
 t = 0
 u = 0.0
 
-x_list = np.zeros((500,4))
-t_list = np.zeros(500)
+x_list = np.zeros((N,4))
+t_list = np.zeros(N)
 
-for i in range(500):
+for i in range(N):
     dx = dynamics(x,u)
     x += dx*dt
     t += dt
