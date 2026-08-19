@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.signal import cont2discrete
 
-from python.linear_model import A, B
+from src.python.linear_model import A, B
 
 dt = 0.01
 #from simulated model

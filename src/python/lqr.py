@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.linalg import solve_continuous_are
 
-from python.linear_model import A, B
+from src.python.linear_model import A, B
 
 Q = np.diag([1.0, 0.1, 100.0, 1.0])
 R = np.array([[0.1]])
