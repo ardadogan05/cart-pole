@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
-from python.cartpole import dynamics
+from src.python.cartpole import dynamics
 
 dt = 0.01
 N = 500

@@ -1,8 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-from python.cartpole import dynamics
-from python.lqr import K
+from src.python.cartpole import dynamics
+from src.python.lqr import K
 
 u_max = 10 # Max force for realism
 dt = 0.01
