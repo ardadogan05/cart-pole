@@ -60,7 +60,36 @@ where $p$ is cart position and $\theta = 0$ is upright.
 | gravity $g$ | 9.81 m/s² |
 | timestep $dt$ | 0.01 s |
 
-The computer advances the nonlinear equations with forward Euler integration. The control model is linearized around the unstable upright equilibrium:
+The nonlinear plant is described by
+
+$$
+\ddot{p} =
+\frac{
+F - mg\sin(\theta)\cos(\theta)
++ ml\dot{\theta}^{2}\sin(\theta)
+}{
+M + m - m\cos^{2}(\theta)
+}
+$$
+
+and
+
+$$
+\ddot{\theta} =
+\frac{
+g\sin(\theta) - \ddot{p}\cos(\theta)
+}{
+l
+}.
+$$
+
+The state is advanced with forward Euler integration:
+
+$$
+x_{k+1} = x_k + \dot{x}_k\Delta t.
+$$
+
+The control model is linearized around the unstable upright equilibrium:
 
 $$
 A = \begin{bmatrix}
@@ -70,16 +99,21 @@ A = \begin{bmatrix}
 0&0&(M+m)g/(Ml)&0
 \end{bmatrix},
 \qquad
-B = \begin{bmatrix}0\\1/M\\0\\-1/(Ml)\end{bmatrix}
+B = \begin{bmatrix}
+0\\
+1/M\\
+0\\
+-1/(Ml)
+\end{bmatrix}
 $$
 
-The controllability matrix has rank 4, so every state is controllable around this equilibrium.
+The controllability matrix has rank 4, so the linearized system is fully controllable.
 
 ## lqr controller
 
 The controller was designed with
 
-$$Q = \operatorname{diag}(1,\ 0.1,\ 100,\ 1), \qquad R = 0.1$$
+$$Q = \mathrm{diag}(1,\ 0.1,\ 100,\ 1), \qquad R = 0.1$$
 
 The high angle weight prioritizes keeping the pole upright. The resulting gain is
 
@@ -94,9 +128,15 @@ $$u = -K\hat{x}, \qquad -10\text{ N} \leq u \leq 10\text{ N}$$
 Only position and angle are measured:
 
 $$
-y = \begin{bmatrix}p\\theta\end{bmatrix} + v,
+y = \begin{bmatrix}
+p\\
+\theta
+\end{bmatrix} + v,
 \qquad
-C = \begin{bmatrix}1&0&0&0\\0&0&1&0\end{bmatrix}
+C = \begin{bmatrix}
+1&0&0&0\\
+0&0&1&0
+\end{bmatrix}
 $$
 
 The simulated measurement noise has standard deviations of 2 mm for position and 0.2 degrees for angle. Cart velocity and pole angular velocity are never measured directly and must be reconstructed by the Kalman filter.
@@ -104,7 +144,7 @@ The simulated measurement noise has standard deviations of 2 mm for position and
 The continuous linear model is discretized with SciPy. The estimator uses
 
 $$
-Q_K = \operatorname{diag}(10^{-6},\ 10^{-4},\ 10^{-6},\ 10^{-4})
+Q_K = \mathrm{diag}(10^{-6},\ 10^{-4},\ 10^{-6},\ 10^{-4})
 $$
 
 and
@@ -124,7 +164,7 @@ For a 5 degree initial angle and a 10 N force limit, the HIL controller stabiliz
 
 | result | value |
 | --- | ---: |
-| settling time within ±0.5 degrees | 1.06 s |
+| settling time (absolute pole angle remains below 0.5°) | 1.06 s |
 | maximum cart position | 0.113 m |
 | maximum pole angle | 5.00 degrees |
 | maximum control force | 8.84 N |
@@ -135,7 +175,7 @@ Additional experiments showed:
 
 - 37.5 degrees recovered with a 10 N force limit while 40 degrees became unstable
 - 20 degrees recovered with a 5 N force limit
-- with a 2 N limit, 5 degrees recovered while 10 degrees and above did not
+- with a 2 N limit, 5° recovered while 10°, 15°, and 20° did not
 - the closed loop recovered from an unmodeled external force applied to the nonlinear plant
 
 These are empirical results for this model, tuning, timestep, actuator limit, and noise. They are not universal LQR stability boundaries.

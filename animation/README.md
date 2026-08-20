@@ -34,7 +34,9 @@ the esp32 runs the kalman filter and lqr then returns `DATA,p,pdot,theta,thetado
 
 restart run closes and reopens the selected port so the esp32 and browser plant both start cleanly
 
-controls
+## controls
+
+software simulation
 
 - pause and reset the simulation
 - push the cart left or right
@@ -42,3 +44,11 @@ controls
 - choose a reset angle up to 45 degrees including 37.5
 - change the maximum controller force from 1 to 30 N
 - change the simulation speed
+
+esp32 hil
+
+- pause and restart the simulation
+- push the cart left or right
+- choose a reset angle up to 45 degrees including 37.5
+- change the simulation speed
+- force limit fixed by the esp32 firmware at 10 N by default
