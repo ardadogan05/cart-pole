@@ -3,88 +3,87 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>cart pole lqr</title>
+    <title>cart pole esp32 hil</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
-<body data-mode="software">
+<body data-mode="esp32">
     <main class="app">
         <header class="topbar">
             <div>
-                <p class="eyebrow">software only · browser copy of python model</p>
-                <h1>cart pole <span>lqr</span></h1>
+                <p class="eyebrow">browser plant · esp32 kalman + lqr</p>
+                <h1>cart pole <span>hil</span></h1>
                 <nav class="mode-nav" aria-label="simulation mode">
-                    <span class="active">software simulation</span>
-                    <a href="esp32.html">esp32 hil</a>
+                    <a href="index.html">software simulation</a>
+                    <span class="active">esp32 hil</span>
                 </nav>
             </div>
 
-            <div class="controller-switch">
-                <span>controller</span>
-                <label class="switch">
-                    <input id="controller-toggle" type="checkbox" checked>
-                    <span class="switch-track"></span>
-                </label>
-                <strong id="controller-state">on</strong>
+            <div class="connection-panel">
+                <span id="connection-dot" class="connection-dot"></span>
+                <strong id="connection-state">disconnected</strong>
+                <button id="connect-button" class="button primary" type="button">connect esp32</button>
             </div>
         </header>
+
+        <p id="serial-message" class="serial-message">open this page from localhost in chrome or edge then select the esp32 serial port</p>
 
         <section class="readouts" aria-label="current system state">
             <article>
                 <span>actual pole angle</span>
                 <strong id="angle-value">5.00°</strong>
-                <small id="angle-estimate">kalman 0.00°</small>
+                <small id="angle-estimate">esp32 0.00°</small>
             </article>
             <article>
                 <span>actual cart position</span>
                 <strong id="position-value">0.000 m</strong>
-                <small id="position-estimate">kalman 0.000 m</small>
+                <small id="position-estimate">esp32 0.000 m</small>
             </article>
             <article>
-                <span>control force</span>
+                <span>esp32 control force</span>
                 <strong id="force-value">0.00 N</strong>
             </article>
             <article>
                 <span>state</span>
-                <strong id="status-value" class="status settling">settling</strong>
+                <strong id="status-value" class="status waiting">waiting</strong>
             </article>
         </section>
 
         <section class="stage-shell">
-            <canvas id="sim-canvas" aria-label="animated cart pole simulation"></canvas>
+            <canvas id="sim-canvas" aria-label="esp32 hardware in the loop cart pole simulation"></canvas>
             <div class="stage-legend">
                 <span><i class="actual-key"></i>actual</span>
-                <span><i class="estimate-key dashed"></i>kalman estimate</span>
+                <span><i class="estimate-key dashed"></i>esp32 estimate</span>
             </div>
             <div class="stage-label left">−2.4 m</div>
             <div class="stage-label center">0</div>
             <div class="stage-label right">+2.4 m</div>
-            <div id="paused-label" class="paused-label hidden">paused</div>
+            <div id="paused-label" class="paused-label">waiting for esp32</div>
         </section>
 
-        <p class="sim-note">falling motion has no friction or damping and forward euler can exaggerate energy during fast rotations</p>
+        <p class="sim-note">the browser only simulates the nonlinear plant and noisy sensors · kalman estimation and lqr force are returned by the esp32</p>
 
         <section class="controls" aria-label="simulation controls">
             <div class="button-group">
-                <button id="pause-button" class="button primary" type="button">pause</button>
-                <button id="reset-button" class="button" type="button">reset</button>
+                <button id="pause-button" class="button primary" type="button" disabled>pause</button>
+                <button id="reset-button" class="button" type="button" disabled>restart run</button>
             </div>
 
             <div class="button-group pushes">
-                <button id="push-left" class="button" type="button">← push left</button>
-                <button id="push-right" class="button" type="button">push right →</button>
+                <button id="push-left" class="button" type="button" disabled>← push left</button>
+                <button id="push-right" class="button" type="button" disabled>push right →</button>
             </div>
 
             <label class="field" for="angle-input">
-                <span>reset angle <strong id="reset-angle-value">5°</strong></span>
+                <span>restart angle <strong id="reset-angle-value">5°</strong></span>
                 <input id="angle-input" type="range" min="1" max="45" value="5" step="0.5">
             </label>
 
             <label class="field" for="force-input">
-                <span>force limit <strong id="force-limit-value">10 N</strong></span>
-                <input id="force-input" type="range" min="1" max="30" value="10" step="0.5">
+                <span>esp32 force limit <strong id="force-limit-value">10 N</strong></span>
+                <input id="force-input" type="range" min="10" max="10" value="10" step="1" disabled>
             </label>
 
             <label class="field compact" for="speed-input">
@@ -101,24 +100,26 @@
             <div class="history-head">
                 <div>
                     <p class="eyebrow">last 10 seconds</p>
-                    <h2>response history</h2>
+                    <h2>esp32 response history</h2>
                 </div>
                 <div class="legend" aria-label="chart legend">
                     <span><i class="angle-key"></i>actual</span>
-                    <span><i class="estimate-key"></i>kalman</span>
+                    <span><i class="estimate-key"></i>esp32</span>
                     <span><i class="sensor-key"></i>sensor</span>
                     <span><i class="force-key"></i>force</span>
                 </div>
             </div>
-            <canvas id="chart-canvas" aria-label="angle and control force history"></canvas>
+            <canvas id="chart-canvas" aria-label="actual state and esp32 response history"></canvas>
         </section>
 
         <footer>
-            <span>noise σ position 2 mm · angle 0.2°</span>
+            <span>serial 115200 baud · noise σ position 2 mm · angle 0.2°</span>
             <span id="time-value">t 0.00 s</span>
         </footer>
     </main>
 
+    <input id="controller-toggle" type="checkbox" checked hidden>
+    <span id="controller-state" hidden>on</span>
     <script src="sim.js"></script>
 </body>
 </html>

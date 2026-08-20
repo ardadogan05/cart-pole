@@ -74,6 +74,30 @@ h1 span {
     color: var(--green);
 }
 
+.mode-nav {
+    display: flex;
+    gap: 16px;
+    margin-top: 16px;
+    font-family: "DM Mono", monospace;
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.mode-nav a,
+.mode-nav span {
+    color: var(--muted);
+    text-decoration: none;
+}
+
+.mode-nav a:hover {
+    color: var(--text);
+}
+
+.mode-nav .active {
+    color: var(--green);
+}
+
 h2 {
     font-size: 20px;
 }
@@ -92,6 +116,45 @@ h2 {
     min-width: 26px;
     color: var(--green);
     font-weight: 500;
+}
+
+.connection-panel {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    flex-wrap: wrap;
+    font-family: "DM Mono", monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+}
+
+.connection-panel strong {
+    color: var(--muted);
+    font-weight: 500;
+}
+
+.connection-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--muted);
+}
+
+.connection-dot.connected {
+    background: var(--green);
+    box-shadow: 0 0 16px rgba(124, 240, 181, 0.65);
+}
+
+.serial-message {
+    margin: 22px 0 -16px;
+    color: var(--muted);
+    font-family: "DM Mono", monospace;
+    font-size: 10px;
+}
+
+.serial-message.error {
+    color: var(--red);
 }
 
 .switch {
@@ -202,6 +265,10 @@ select:focus-visible {
 
 .status.falling {
     color: var(--red);
+}
+
+.status.waiting {
+    color: var(--muted);
 }
 
 .stage-shell {
@@ -337,6 +404,12 @@ select:focus-visible {
     transform: translateY(0);
 }
 
+.button:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+    transform: none;
+}
+
 .button.primary {
     border-color: var(--green);
     background: var(--green);
@@ -456,6 +529,15 @@ footer {
 
     .topbar {
         align-items: flex-end;
+    }
+
+    .connection-panel {
+        max-width: 150px;
+    }
+
+    .connection-panel strong,
+    .connection-dot {
+        display: none;
     }
 
     .controller-switch > span:first-child {
