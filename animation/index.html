@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>cart pole lqr</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <main class="app">
+        <header class="topbar">
+            <div>
+                <p class="eyebrow">nonlinear plant · noisy sensors · kalman + lqr</p>
+                <h1>cart pole <span>lqr</span></h1>
+            </div>
+
+            <div class="controller-switch">
+                <span>controller</span>
+                <label class="switch">
+                    <input id="controller-toggle" type="checkbox" checked>
+                    <span class="switch-track"></span>
+                </label>
+                <strong id="controller-state">on</strong>
+            </div>
+        </header>
+
+        <section class="readouts" aria-label="current system state">
+            <article>
+                <span>actual pole angle</span>
+                <strong id="angle-value">5.00°</strong>
+                <small id="angle-estimate">kalman 0.00°</small>
+            </article>
+            <article>
+                <span>actual cart position</span>
+                <strong id="position-value">0.000 m</strong>
+                <small id="position-estimate">kalman 0.000 m</small>
+            </article>
+            <article>
+                <span>control force</span>
+                <strong id="force-value">0.00 N</strong>
+            </article>
+            <article>
+                <span>state</span>
+                <strong id="status-value" class="status settling">settling</strong>
+            </article>
+        </section>
+
+        <section class="stage-shell">
+            <canvas id="sim-canvas" aria-label="animated cart pole simulation"></canvas>
+            <div class="stage-legend">
+                <span><i class="actual-key"></i>actual</span>
+                <span><i class="estimate-key dashed"></i>kalman estimate</span>
+            </div>
+            <div class="stage-label left">−2.4 m</div>
+            <div class="stage-label center">0</div>
+            <div class="stage-label right">+2.4 m</div>
+            <div id="paused-label" class="paused-label hidden">paused</div>
+        </section>
+
+        <p class="sim-note">falling motion has no friction or damping and forward euler can exaggerate energy during fast rotations</p>
+
+        <section class="controls" aria-label="simulation controls">
+            <div class="button-group">
+                <button id="pause-button" class="button primary" type="button">pause</button>
+                <button id="reset-button" class="button" type="button">reset</button>
+            </div>
+
+            <div class="button-group pushes">
+                <button id="push-left" class="button" type="button">← push left</button>
+                <button id="push-right" class="button" type="button">push right →</button>
+            </div>
+
+            <label class="field" for="angle-input">
+                <span>reset angle <strong id="reset-angle-value">5°</strong></span>
+                <input id="angle-input" type="range" min="1" max="45" value="5" step="0.5">
+            </label>
+
+            <label class="field" for="force-input">
+                <span>force limit <strong id="force-limit-value">10 N</strong></span>
+                <input id="force-input" type="range" min="1" max="30" value="10" step="0.5">
+            </label>
+
+            <label class="field compact" for="speed-input">
+                <span>speed</span>
+                <select id="speed-input">
+                    <option value="0.5">0.5×</option>
+                    <option value="1" selected>1×</option>
+                    <option value="2">2×</option>
+                </select>
+            </label>
+        </section>
+
+        <section class="history">
+            <div class="history-head">
+                <div>
+                    <p class="eyebrow">last 10 seconds</p>
+                    <h2>response history</h2>
+                </div>
+                <div class="legend" aria-label="chart legend">
+                    <span><i class="angle-key"></i>actual</span>
+                    <span><i class="estimate-key"></i>kalman</span>
+                    <span><i class="sensor-key"></i>sensor</span>
+                    <span><i class="force-key"></i>force</span>
+                </div>
+            </div>
+            <canvas id="chart-canvas" aria-label="angle and control force history"></canvas>
+        </section>
+
+        <footer>
+            <span>noise σ position 2 mm · angle 0.2°</span>
+            <span id="time-value">t 0.00 s</span>
+        </footer>
+    </main>
+
+    <script src="sim.js"></script>
+</body>
+</html>

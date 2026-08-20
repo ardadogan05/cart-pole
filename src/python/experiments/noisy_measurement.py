@@ -25,6 +25,7 @@ u_list = np.zeros(N)
 y_list = np.zeros((N, 2))
 
 for i in range(N):
+    #using true state since this experiment only shows simulated sensor noise
     u = float(-K @ x)
     u = np.clip(u, -u_max, u_max)
 

@@ -4,21 +4,18 @@
 //hardcoding discretized matrices to make it easier for esp
 
 Eigen::Matrix4f Ad;
-
 Eigen::Vector4f Bd;
-
 Eigen::Matrix<float, 2, 4> C;
-
 Eigen::Matrix4f Qk;
-
 Eigen::Matrix2f Rk;
+Eigen::RowVector4f K;
 
 //for estimation: 
 Eigen::Vector4f x_hat = Eigen::Vector4f::Zero();
-
 Eigen::Matrix4f P = Eigen::Matrix4f::Identity();
 
 float u_prev = 0.0f;
+float u_max = 10.0f;
 
 void kalmanStep(
     Eigen::Vector4f& x_hat,
@@ -39,8 +36,6 @@ void kalmanStep(
     P = (Eigen::Matrix4f::Identity() - Kk * C) * P_pred;
 
 } 
-
-
 
 
 void setup()
@@ -70,9 +65,13 @@ void setup()
     Rk <<
         4e-6f, 0.0f,
         0.0f, 1.21846968e-05f;
+    
+    K << 
+        -3.16227766f, -5.5397091f, -56.84055809f, -10.86364348f;
 
     Serial.begin(115200);
 }
+
 
 void loop()
 {
@@ -94,10 +93,24 @@ void loop()
                 float angle =
                     line.substring(secondComma + 1).toFloat();
 
-                // For now, do absolutely nothing with them.
-                // Kalman + LQR comes later.
+                Eigen::Vector2f y;
+                y << position, angle;
 
-                Serial.println("CTRL,0.0");
+                kalmanStep(x_hat, P, u_prev, y);
+                float u = -(K * x_hat)(0);
+                u = constrain(u, -u_max, u_max);
+                u_prev = u;
+
+                Serial.print("DATA,");
+                Serial.print(x_hat(0), 6);
+                Serial.print(",");
+                Serial.print(x_hat(1), 6);
+                Serial.print(",");
+                Serial.print(x_hat(2), 6);
+                Serial.print(",");
+                Serial.print(x_hat(3), 6);
+                Serial.print(",");
+                Serial.println(u, 6);
             }
         }
     }
