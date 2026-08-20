@@ -59,9 +59,14 @@ for i in range(N):
     response = ser.readline().decode().strip()
 
     # expected:
-    # EST,p,pdot,theta,thetadot
+    # DATA,p,pdot,theta,thetadot,u
 
     parts = response.split(",")
+
+    #stop if esp32 response is missing or incomplete
+    if len(parts) != 6 or parts[0] != "DATA":
+        print("Invalid response:", response)
+        break
 
     x_hat_esp = np.array([
         float(parts[1]),
@@ -69,6 +74,9 @@ for i in range(N):
         float(parts[3]),
         float(parts[4])
     ])
+
+    #use same input as esp32 for next kalman prediction
+    u_prev = float(parts[5])
 
     print("Python:", x_hat_py)
     print("ESP32 :", x_hat_esp)

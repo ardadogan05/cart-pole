@@ -58,6 +58,11 @@ for i in range(N):
 
     parts = response.split(",")
 
+    #stop if esp32 response is missing or incomplete
+    if len(parts) != 6 or parts[0] != "DATA":
+        print("Invalid response:", response)
+        break
+
     x_hat = np.array([
         float(parts[1]),
         float(parts[2]),
@@ -113,3 +118,26 @@ plt.grid()
 
 plt.tight_layout()
 plt.show()
+
+#relevant metrics
+theta_deg = np.abs(np.rad2deg(x_list[:, 2]))
+
+settling_time = None
+
+for i in range(N):
+    if np.all(theta_deg[i:] < 0.5):
+        settling_time = t_list[i]
+        break
+
+if settling_time is not None:
+    print("Settling time:", round(settling_time, 2), "s")
+else:
+    print("System did not settle")
+
+max_position = np.max(np.abs(x_list[:, 0]))
+max_angle = np.max(np.abs(np.rad2deg(x_list[:, 2])))
+max_force = np.max(np.abs(u_list))
+
+print("Max position:", round(max_position, 3), "m")
+print("Max angle:", round(max_angle, 2), "deg")
+print("Max force:", round(max_force, 2), "N")
