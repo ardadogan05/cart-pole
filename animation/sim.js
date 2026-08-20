@@ -2,6 +2,7 @@ const simCanvas = document.getElementById("sim-canvas")
 const chartCanvas = document.getElementById("chart-canvas")
 const simContext = simCanvas.getContext("2d")
 const chartContext = chartCanvas.getContext("2d")
+const isEsp32 = document.body.dataset.mode === "esp32"
 
 const angleValue = document.getElementById("angle-value")
 const angleEstimate = document.getElementById("angle-estimate")
@@ -22,6 +23,10 @@ const forceInput = document.getElementById("force-input")
 const forceLimitValue = document.getElementById("force-limit-value")
 const speedInput = document.getElementById("speed-input")
 const pausedLabel = document.getElementById("paused-label")
+const connectButton = document.getElementById("connect-button")
+const connectionDot = document.getElementById("connection-dot")
+const connectionState = document.getElementById("connection-state")
+const serialMessage = document.getElementById("serial-message")
 
 //same model values as python simulation
 const M = 1.0
@@ -68,6 +73,12 @@ let uMax = Number(forceInput.value)
 let accumulator = 0
 let previousFrame = performance.now()
 let history = []
+let serialPort = null
+let serialReader = null
+let serialWriter = null
+let serialBuffer = ""
+let serialConnected = false
+let connectionGeneration = 0
 
 function degreesToRadians(value) {
     return value * Math.PI / 180
@@ -95,6 +106,225 @@ function randomNormal() {
     while (second === 0) second = Math.random()
 
     return Math.sqrt(-2 * Math.log(first)) * Math.cos(2 * Math.PI * second)
+}
+
+function delay(milliseconds) {
+    return new Promise(resolve => setTimeout(resolve, milliseconds))
+}
+
+function setSerialMessage(message, isError = false) {
+    if (!serialMessage) return
+
+    serialMessage.textContent = message
+    serialMessage.classList.toggle("error", isError)
+}
+
+function setHardwareControls(enabled) {
+    pauseButton.disabled = !enabled
+    resetButton.disabled = !enabled
+    pushLeft.disabled = !enabled
+    pushRight.disabled = !enabled
+}
+
+function updateConnectionDisplay(connected, label) {
+    if (!connectionState || !connectionDot || !connectButton) return
+
+    connectionState.textContent = label
+    connectionDot.classList.toggle("connected", connected)
+    connectButton.textContent = connected ? "disconnect" : "connect esp32"
+}
+
+async function readEsp32Data(generation) {
+    while (serialConnected && generation === connectionGeneration) {
+        const newlineIndex = serialBuffer.indexOf("\n")
+
+        if (newlineIndex !== -1) {
+            const line = serialBuffer.slice(0, newlineIndex).trim()
+            serialBuffer = serialBuffer.slice(newlineIndex + 1)
+            const parts = line.split(",")
+
+            if (parts.length === 6 && parts[0] === "DATA") {
+                const values = parts.slice(1).map(Number)
+
+                if (values.every(Number.isFinite)) {
+                    return {
+                        estimate: values.slice(0, 4),
+                        force: values[4]
+                    }
+                }
+            }
+
+            continue
+        }
+
+        const { value, done } = await serialReader.read()
+
+        if (done) {
+            throw new Error("serial connection closed")
+        }
+
+        if (value) {
+            serialBuffer += new TextDecoder().decode(value)
+        }
+    }
+
+    return null
+}
+
+async function hardwareStep(generation) {
+    measurement = [
+        state[0] + randomNormal() * positionStd,
+        state[2] + randomNormal() * angleStd
+    ]
+
+    const message = `MEAS,${measurement[0]},${measurement[1]}\n`
+    await serialWriter.write(new TextEncoder().encode(message))
+
+    const response = await readEsp32Data(generation)
+
+    if (!response) return
+
+    xHat = response.estimate
+    controlForce = response.force
+
+    if (pushTime > 0) {
+        pushTime -= dt
+    } else {
+        externalForce = 0
+    }
+
+    plantForce = controlForce + externalForce
+
+    const xDot = dynamics(state, plantForce)
+
+    for (let i = 0; i < 4; i++) {
+        state[i] += xDot[i] * dt
+    }
+
+    simulationTime += dt
+
+    if (history.length === 0 || simulationTime - history[history.length - 1].time >= 0.04) {
+        history.push({
+            time: simulationTime,
+            angle: radiansToDegrees(state[2]),
+            estimateAngle: radiansToDegrees(xHat[2]),
+            measurementAngle: radiansToDegrees(measurement[1]),
+            force: controlForce
+        })
+    }
+
+    while (history.length > 0 && simulationTime - history[0].time > 10) {
+        history.shift()
+    }
+}
+
+async function runHardwareLoop(generation) {
+    try {
+        while (serialConnected && generation === connectionGeneration) {
+            if (running) {
+                await hardwareStep(generation)
+                await delay(dt * 1000 / speed)
+            } else {
+                await delay(40)
+            }
+        }
+    } catch (error) {
+        if (serialConnected && generation === connectionGeneration) {
+            setSerialMessage(error.message || "serial communication failed", true)
+            await closeSerialConnection()
+        }
+    }
+}
+
+async function openSerialConnection(selectedPort) {
+    connectButton.disabled = true
+    updateConnectionDisplay(false, "connecting")
+    setSerialMessage("opening serial port and waiting for esp32 reset")
+
+    try {
+        serialPort = selectedPort
+        await serialPort.open({ baudRate: 115200 })
+        serialReader = serialPort.readable.getReader()
+        serialWriter = serialPort.writable.getWriter()
+        serialBuffer = ""
+        await delay(2000)
+
+        serialConnected = true
+        connectionGeneration += 1
+        resetSimulation()
+        setHardwareControls(true)
+        updateConnectionDisplay(true, "connected")
+        setSerialMessage("live esp32 control · browser sends measurements and applies returned force")
+        connectButton.disabled = false
+        runHardwareLoop(connectionGeneration)
+    } catch (error) {
+        setSerialMessage(error.message || "could not open serial port", true)
+        updateConnectionDisplay(false, "disconnected")
+        connectButton.disabled = false
+    }
+}
+
+async function closeSerialConnection(keepPort = false) {
+    serialConnected = false
+    connectionGeneration += 1
+    running = false
+    setHardwareControls(false)
+
+    if (serialReader) {
+        await serialReader.cancel().catch(() => {})
+        serialReader.releaseLock()
+        serialReader = null
+    }
+
+    if (serialWriter) {
+        serialWriter.releaseLock()
+        serialWriter = null
+    }
+
+    if (serialPort) {
+        await serialPort.close().catch(() => {})
+    }
+
+    if (!keepPort) {
+        serialPort = null
+    }
+
+    updateConnectionDisplay(false, "disconnected")
+    connectButton.disabled = false
+    pausedLabel.textContent = "waiting for esp32"
+    pausedLabel.classList.remove("hidden")
+}
+
+async function connectEsp32() {
+    if (!("serial" in navigator)) {
+        setSerialMessage("web serial is not supported here · use chrome or edge on localhost", true)
+        return
+    }
+
+    if (serialConnected) {
+        await closeSerialConnection()
+        setSerialMessage("esp32 disconnected")
+        return
+    }
+
+    try {
+        const selectedPort = await navigator.serial.requestPort()
+        await openSerialConnection(selectedPort)
+    } catch (error) {
+        if (error.name !== "NotFoundError") {
+            setSerialMessage(error.message || "serial port was not selected", true)
+        }
+    }
+}
+
+async function restartHardwareRun() {
+    if (!serialPort || !serialConnected) return
+
+    const selectedPort = serialPort
+    connectButton.disabled = true
+    await closeSerialConnection(true)
+    await delay(250)
+    await openSerialConnection(selectedPort)
 }
 
 function getTheme() {
@@ -265,9 +495,10 @@ function resetSimulation() {
     simulationTime = 0
     accumulator = 0
     history = []
-    running = true
+    running = !isEsp32 || serialConnected
     pauseButton.textContent = "pause"
-    pausedLabel.classList.add("hidden")
+    pausedLabel.textContent = running ? "paused" : "waiting for esp32"
+    pausedLabel.classList.toggle("hidden", running)
     updateReadouts()
 }
 
@@ -598,15 +829,22 @@ function drawChart() {
 function updateReadouts() {
     const angle = radiansToDegrees(state[2])
     const absoluteAngle = Math.abs(angle)
+    const estimateName = isEsp32 ? "esp32" : "kalman"
 
     angleValue.textContent = `${angle.toFixed(2)}°`
-    angleEstimate.textContent = `kalman ${radiansToDegrees(xHat[2]).toFixed(2)}°`
+    angleEstimate.textContent = `${estimateName} ${radiansToDegrees(xHat[2]).toFixed(2)}°`
     positionValue.textContent = `${state[0].toFixed(3)} m`
-    positionEstimate.textContent = `kalman ${xHat[0].toFixed(3)} m`
+    positionEstimate.textContent = `${estimateName} ${xHat[0].toFixed(3)} m`
     forceValue.textContent = `${controlForce.toFixed(2)} N`
     timeValue.textContent = `t ${simulationTime.toFixed(2)} s`
 
     statusValue.className = "status"
+
+    if (isEsp32 && !serialConnected) {
+        statusValue.textContent = "waiting"
+        statusValue.classList.add("waiting")
+        return
+    }
 
     if (absoluteAngle < 0.5 && Math.abs(state[3]) < 0.08) {
         statusValue.textContent = "stable"
@@ -624,7 +862,7 @@ function animate(currentFrame) {
     const elapsed = Math.min((currentFrame - previousFrame) / 1000, 0.1)
     previousFrame = currentFrame
 
-    if (running) {
+    if (running && !isEsp32) {
         accumulator += elapsed * speed
 
         while (accumulator >= dt) {
@@ -650,7 +888,13 @@ pauseButton.addEventListener("click", () => {
     pausedLabel.classList.toggle("hidden", running)
 })
 
-resetButton.addEventListener("click", resetSimulation)
+resetButton.addEventListener("click", () => {
+    if (isEsp32) {
+        restartHardwareRun()
+    } else {
+        resetSimulation()
+    }
+})
 pushLeft.addEventListener("click", () => applyPush(-1))
 pushRight.addEventListener("click", () => applyPush(1))
 
@@ -667,10 +911,25 @@ speedInput.addEventListener("change", () => {
     speed = Number(speedInput.value)
 })
 
+if (connectButton) {
+    connectButton.addEventListener("click", connectEsp32)
+}
+
 window.addEventListener("resize", () => {
     drawSimulation()
     drawChart()
 })
 
 resetSimulation()
+
+if (isEsp32) {
+    setHardwareControls(false)
+    updateConnectionDisplay(false, "disconnected")
+
+    if (!("serial" in navigator)) {
+        setSerialMessage("web serial is not supported here · use chrome or edge on localhost", true)
+        connectButton.disabled = true
+    }
+}
+
 requestAnimationFrame(animate)
